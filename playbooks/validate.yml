@@ -1,0 +1,30 @@
+---
+- name: Post-deploy validation
+  hosts: routers
+  gather_facts: false
+
+  tasks:
+    - name: Get interface summary
+      cisco.ios.ios_command:
+        commands: show ip interface brief
+      register: ifaces
+
+    - name: Assert the management IP is on an up/up interface
+      ansible.builtin.assert:
+        that:
+          - ifaces.stdout_lines[0] | select('search', mgmt_ip_regex) | list | length > 0
+        fail_msg: "{{ inventory_hostname }}: no up/up interface with {{ ansible_host }}"
+        success_msg: "{{ inventory_hostname }}: {{ ansible_host }} is up/up"
+      vars:
+        mgmt_ip_regex: "{{ ansible_host | regex_escape }}\\s+\\S+\\s+\\S+\\s+up\\s+up"
+
+    - name: Get software version
+      cisco.ios.ios_command:
+        commands: show version
+      register: version
+
+    - name: Assert device reports a software version
+      ansible.builtin.assert:
+        that:
+          - "'Cisco IOS' in version.stdout[0]"
+        fail_msg: "{{ inventory_hostname }}: unexpected 'show version' output"

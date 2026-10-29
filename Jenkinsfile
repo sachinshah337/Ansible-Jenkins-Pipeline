@@ -108,6 +108,37 @@ pipeline {
         }
       }
     }
+
+    stage('Validate') {
+      when { branch 'main' }
+      steps {
+        withNetCreds {
+          sh '''
+            . venv/bin/activate
+            ansible-playbook playbooks/validate.yml --limit "$LIMIT"
+          '''
+        }
+      }
+    }
+
+    stage('Idempotency check') {
+      when { branch 'main' }
+      steps {
+        withNetCreds {
+          // A second run must report changed=0.
+          sh '''
+            . venv/bin/activate
+            export ANSIBLE_FORCE_COLOR=false ANSIBLE_NOCOLOR=true
+            ansible-playbook "$PLAYBOOK" --limit "$LIMIT" > run2.log 2>&1 || { cat run2.log; exit 1; }
+            cat run2.log
+            if grep -Eq 'changed=[1-9]' run2.log; then
+              echo "Second run made changes: playbook is not idempotent"
+              exit 1
+            fi
+          '''
+        }
+      }
+    }
   }
 
   post {
