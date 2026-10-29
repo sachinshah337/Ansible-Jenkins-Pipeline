@@ -26,17 +26,20 @@ pipeline {
 
   environment {
     ANSIBLE_FORCE_COLOR = 'true'
+    // Params are null on the first run of a new branch, so default here.
+    PLAYBOOK = "${params.PLAYBOOK ?: 'playbooks/test1.yml'}"
+    LIMIT = "${params.LIMIT ?: 'routers'}"
   }
 
   stages {
     stage('Validate parameters') {
       steps {
         script {
-          if (!(params.PLAYBOOK ==~ /^playbooks\/[A-Za-z0-9_.\-]+\.ya?ml$/)) {
-            error "Invalid PLAYBOOK: ${params.PLAYBOOK}"
+          if (!(env.PLAYBOOK ==~ /^playbooks\/[A-Za-z0-9_.\-]+\.ya?ml$/)) {
+            error "Invalid PLAYBOOK: ${env.PLAYBOOK}"
           }
-          if (!(params.LIMIT ==~ /^[A-Za-z0-9_.,\-]+$/)) {
-            error "Invalid LIMIT: ${params.LIMIT}"
+          if (!(env.LIMIT ==~ /^[A-Za-z0-9_.,\-]+$/)) {
+            error "Invalid LIMIT: ${env.LIMIT}"
           }
         }
       }
@@ -89,7 +92,7 @@ pipeline {
       steps {
         timeout(time: 15, unit: 'MINUTES') {
           // Narrow to a network-ops group once RBAC exists (Phase 8).
-          input message: "Deploy ${params.PLAYBOOK} to ${params.LIMIT}?", submitter: 'admin'
+          input message: "Deploy ${env.PLAYBOOK} to ${env.LIMIT}?", submitter: 'admin'
         }
       }
     }
