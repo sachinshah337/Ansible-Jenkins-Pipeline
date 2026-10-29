@@ -5,11 +5,11 @@
   gather_facts: false
 
   tasks:
-    - name: run show inventory on the routers
-      ios_command:
-        commands: show inv
+    - name: Run show inventory on the routers
+      cisco.ios.ios_command:
+        commands: show inventory
       register: output
 
-    - name: print output
-      debug:
+    - name: Print output
+      ansible.builtin.debug:
         var: output.stdout_lines
