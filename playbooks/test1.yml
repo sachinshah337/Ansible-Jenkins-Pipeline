@@ -1,0 +1,15 @@
+---
+
+- name: Cisco fetch inventory example
+  hosts: routers
+  gather_facts: false
+
+  tasks:
+    - name: run show inventory on the routers
+      ios_command:
+        commands: show inv
+      register: output
+
+    - name: print output
+      debug:
+        var: output.stdout_lines
