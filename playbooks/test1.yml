@@ -1,5 +1,5 @@
 ---
-
+# This playbook fetches the inventory from Cisco routers and prints the output
 - name: Cisco fetch inventory example
   hosts: routers
   gather_facts: false
