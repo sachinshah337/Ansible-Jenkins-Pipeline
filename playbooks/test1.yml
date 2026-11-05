@@ -1,15 +1,29 @@
 ---
-# This playbook fetches the inventory from Cisco routers and prints the output
-- name: Cisco fetch inventory example
+# Configures Loopback100 on each router from vars/loopback100.yml.
+- name: Configure Loopback100
   hosts: routers
   gather_facts: false
 
-  tasks:
-    - name: Run show inventory on the routers
-      cisco.ios.ios_command:
-        commands: show inventory
-      register: output
+  vars_files:
+    - "{{ playbook_dir }}/../vars/loopback100.yml"
 
-    - name: Print output
+  tasks:
+    - name: Require an address entry for this device
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname in loopback100_addresses
+          - loopback100_addresses[inventory_hostname].ip is defined
+          - loopback100_addresses[inventory_hostname].mask is defined
+        fail_msg: "{{ inventory_hostname }} has no ip/mask in vars/loopback100.yml"
+
+    - name: Configure Loopback100 address
+      cisco.ios.ios_config:
+        parents: "interface {{ loopback100_name }}"
+        lines:
+          - "description {{ loopback100_description }}"
+          - "ip address {{ loopback100_addresses[inventory_hostname].ip }} {{ loopback100_addresses[inventory_hostname].mask }}"
+      register: loopback_result
+
+    - name: Show commands sent
       ansible.builtin.debug:
-        var: output.stdout_lines
+        msg: "{{ loopback_result.updates | default([]) }}"
