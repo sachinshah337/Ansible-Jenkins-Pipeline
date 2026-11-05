@@ -1,0 +1,35 @@
+---
+# Usage: ansible-playbook playbooks/snapshot.yml -e snapshot_phase=pre|post
+- name: Capture running-config snapshot
+  hosts: routers
+  gather_facts: false
+
+  vars:
+    snapshot_dir: "{{ playbook_dir }}/../snapshots/{{ snapshot_phase }}"
+    # Lines that change on every read and would show up as false diffs.
+    noise_regex: "^(Building configuration|Current configuration|! Last configuration change|! NVRAM config last updated|!Time:|ntp clock-period|Using .* out of .* bytes)"
+
+  tasks:
+    - name: Require snapshot_phase to be pre or post
+      ansible.builtin.assert:
+        that: snapshot_phase | default('') in ['pre', 'post']
+        fail_msg: "Pass -e snapshot_phase=pre or -e snapshot_phase=post"
+
+    - name: Get running-config
+      cisco.ios.ios_command:
+        commands: show running-config
+      register: running
+
+    - name: Ensure snapshot directory exists
+      ansible.builtin.file:
+        path: "{{ snapshot_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: Save filtered running-config
+      ansible.builtin.copy:
+        content: "{{ running.stdout[0].splitlines() | reject('match', noise_regex) | join('\n') }}\n"
+        dest: "{{ snapshot_dir }}/{{ inventory_hostname }}.cfg"
+        mode: "0644"
+      delegate_to: localhost
