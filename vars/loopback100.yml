@@ -1,0 +1,15 @@
+---
+# Loopback addresses per device. Edit this file to change what test1.yml configures.
+loopback100_name: Loopback100
+loopback100_description: Managed by Ansible
+
+loopback100_addresses:
+  C8K-1:
+    ip: 10.100.100.1
+    mask: 255.255.255.255
+  C8K-2:
+    ip: 10.100.100.2
+    mask: 255.255.255.255
+  C8K-4:
+    ip: 10.100.100.4
+    mask: 255.255.255.255
