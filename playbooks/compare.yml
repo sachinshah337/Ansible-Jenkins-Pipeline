@@ -1,0 +1,50 @@
+---
+# Compares snapshots/pre and snapshots/post. Add -e fail_on_diff=true to fail when any config changed.
+- name: Compare pre and post configuration
+  hosts: routers
+  gather_facts: false
+
+  vars:
+    snap_root: "{{ playbook_dir }}/../snapshots"
+    fail_on_diff: false
+
+  tasks:
+    - name: Ensure diff directory exists
+      ansible.builtin.file:
+        path: "{{ snap_root }}/diff"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: Diff pre and post snapshots
+      ansible.builtin.command:
+        argv:
+          - diff
+          - -u
+          - --label
+          - "pre/{{ inventory_hostname }}"
+          - --label
+          - "post/{{ inventory_hostname }}"
+          - "{{ snap_root }}/pre/{{ inventory_hostname }}.cfg"
+          - "{{ snap_root }}/post/{{ inventory_hostname }}.cfg"
+      register: cfg_diff
+      changed_when: false
+      failed_when: cfg_diff.rc > 1
+      delegate_to: localhost
+
+    - name: Save diff
+      ansible.builtin.copy:
+        content: "{{ cfg_diff.stdout }}\n"
+        dest: "{{ snap_root }}/diff/{{ inventory_hostname }}.diff"
+        mode: "0644"
+      delegate_to: localhost
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ cfg_diff.stdout_lines if cfg_diff.rc == 1 else inventory_hostname ~ ': no configuration changes' }}"
+
+    - name: Fail if configuration changed and fail_on_diff is set
+      ansible.builtin.assert:
+        that: cfg_diff.rc == 0
+        fail_msg: "{{ inventory_hostname }}: configuration changed between pre and post"
+      when: fail_on_diff | bool

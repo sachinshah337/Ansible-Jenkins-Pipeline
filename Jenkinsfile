@@ -22,6 +22,7 @@ pipeline {
   parameters {
     string(name: 'PLAYBOOK', defaultValue: 'playbooks/test1.yml', description: 'Playbook path inside the repo')
     string(name: 'LIMIT', defaultValue: 'routers', description: 'Ansible --limit (host or group)')
+    booleanParam(name: 'FAIL_ON_DIFF', defaultValue: false, description: 'Fail if pre/post configs differ (use for read-only playbooks)')
   }
 
   environment {
@@ -29,6 +30,7 @@ pipeline {
     // Params are null on the first run of a new branch, so default here.
     PLAYBOOK = "${params.PLAYBOOK ?: 'playbooks/test1.yml'}"
     LIMIT = "${params.LIMIT ?: 'routers'}"
+    FAIL_ON_DIFF = "${params.FAIL_ON_DIFF ?: false}"
   }
 
   stages {
@@ -97,6 +99,18 @@ pipeline {
       }
     }
 
+    stage('Pre-change snapshot') {
+      when { branch 'main' }
+      steps {
+        withNetCreds {
+          sh '''
+            . venv/bin/activate
+            ansible-playbook playbooks/snapshot.yml --limit "$LIMIT" -e snapshot_phase=pre
+          '''
+        }
+      }
+    }
+
     stage('Deploy') {
       when { branch 'main' }
       steps {
@@ -104,6 +118,19 @@ pipeline {
           sh '''
             . venv/bin/activate
             ansible-playbook "$PLAYBOOK" --limit "$LIMIT"
+          '''
+        }
+      }
+    }
+
+    stage('Post-change snapshot and compare') {
+      when { branch 'main' }
+      steps {
+        withNetCreds {
+          sh '''
+            . venv/bin/activate
+            ansible-playbook playbooks/snapshot.yml --limit "$LIMIT" -e snapshot_phase=post
+            ansible-playbook playbooks/compare.yml --limit "$LIMIT" -e fail_on_diff="$FAIL_ON_DIFF"
           '''
         }
       }
@@ -143,7 +170,7 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'backups/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'backups/**, snapshots/**', allowEmptyArchive: true
       cleanWs()
     }
     failure {

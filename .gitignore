@@ -2,4 +2,5 @@ venv/
 *.retry
 .vault_pass
 backups/
+snapshots/
 .ansible/
